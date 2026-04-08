@@ -6,7 +6,6 @@ import sqlite3
 import os
 import pandas as pd
 
-# Default arguments for the DAG
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
@@ -16,7 +15,7 @@ default_args = {
     'retry_delay': timedelta(minutes=5),
 }
 
-# Define the DAG
+
 dag = DAG(
     'users_etl_pipeline',
     default_args=default_args,
@@ -26,13 +25,12 @@ dag = DAG(
     catchup=False,
 )
 
-# Database setup function
+
 def setup_database():
     db_path = os.path.join(os.path.dirname(__file__), 'etl_data.db')
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
-    # Create users table if it doesn't exist
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY,
@@ -45,40 +43,32 @@ def setup_database():
         )
     ''')
 
-    # Truncate the table
     cursor.execute('DELETE FROM users')
     conn.commit()
     conn.close()
 
-# Define the extract function
+
 def extract_data():
     print("Extracting data from users.csv...")
     csv_path = os.path.join(os.path.dirname(__file__), 'users.csv')
     df = pd.read_csv(csv_path)
     return df.to_dict('records')
 
-# Define the transform function
+
 def transform_data(**context):
     print("Transforming data...")
-    # Get data from previous task
     data = context['task_instance'].xcom_pull(task_ids='extract')
-    
-    # Add any transformations here if needed
-    # For now, we'll just pass through the data
+
     return data
 
-# Define the load function
+
 def load_data(**context):
-    print("Loading data to SQLite database...")
-    # Get transformed data from previous task
     data = context['task_instance'].xcom_pull(task_ids='transform')
     
-    # Connect to database
     db_path = os.path.join(os.path.dirname(__file__), 'etl_data.db')
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    
-    # Insert data
+
     for record in data:
         cursor.execute('''
             INSERT INTO users (id, first_name, last_name, email, gender, ip_address)
@@ -96,7 +86,6 @@ def load_data(**context):
     conn.close()
     print(f"Successfully loaded {len(data)} user records into the database")
 
-# Define the tasks
 start_task = EmptyOperator(task_id='start', dag=dag)
 
 extract_task = PythonOperator(
